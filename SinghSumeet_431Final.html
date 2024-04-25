@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>To-Do List</title>
+    <style>
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+        }
+
+        h1 {
+            color: #333;
+        }
+
+        span {
+            font-size: 15px;
+        }
+
+        form {
+            margin-bottom: 20px;
+        }
+
+        input[type="text"] {
+            padding: 8px;
+            font-size: 16px;
+            width: 70%;
+        }
+
+        button {
+            padding: 8px 15px;
+            font-size: 16px;
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        .list-item {
+            margin-bottom: 10px;
+        }
+
+        /* Style for back button */
+        #backButton {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+        }
+
+        .checked {
+            color: green; /* Change to desired color */
+        }
+
+        .unchecked {
+            color: black; /* Default color */
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>To-Do List</h1>       
+        
+        <form id="new-list-form">
+            <input type="text" id="new-list-name" placeholder="Enter list name">
+            <button type="submit">Create List</button>
+        </form>
+
+        <div id="sortOptions">
+            <button id="sortByName">Sort by Name</button>
+            <button id="sortByCreated">Sort by Created</button>
+            <br>
+            <span id="sortByNameOrder"></span> <!-- Display sort order here -->
+            <span id="sortByCreatedOrder"></span> <!-- Display sort order here -->
+        </div> 
+
+        <div id="lists-container">
+            <!-- Lists will be dynamically added here -->
+        </div>
+    </div>
+    <button id="backButton" style="display: none;">Back</button>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Fetch and display lists
+            fetchLists();
+
+            // Handle form submission
+            document.getElementById('new-list-form').addEventListener('submit', function(event) {
+                event.preventDefault();
+                const newListName = document.getElementById('new-list-name').value.trim();
+                if (newListName !== '') {
+                    createList(encodeURIWithApostrophe(newListName)); // Encode with apostrophes handled
+                }
+            });
+
+            // Back button functionality
+            document.getElementById('backButton').addEventListener('click', function() {
+                // Hide the back button
+                document.getElementById('backButton').style.display = 'none';
+                // Show the new list form
+                document.getElementById('new-list-form').style.display = 'block';
+                // Fetch and display lists
+                fetchLists();
+            });
+
+           // Handle sorting by name
+            document.getElementById('sortByName').addEventListener('click', function() {
+                const currentOrder = this.dataset.order || 'ASC';
+                const newOrder = currentOrder === 'ASC' ? 'DESC' : 'ASC';
+                fetchAndDisplayLists('name', newOrder);
+                this.textContent = `Sort by Name`;
+                this.dataset.order = newOrder;
+                document.getElementById('sortByNameOrder').textContent = `Name (${newOrder === 'ASC' ? 'Ascending' : 'Descending'})`; // Update sort order text
+                document.getElementById('sortByCreatedOrder').textContent = ''; // Clear sort order text of the other button
+            });
+
+            // Handle sorting by created date
+            document.getElementById('sortByCreated').addEventListener('click', function() {
+                const currentOrder = this.dataset.order || 'ASC'; // Default order is ascending
+                const newOrder = currentOrder === 'ASC' ? 'DESC' : 'ASC'; // Toggle order
+                fetchAndDisplayLists('created_at', newOrder); 
+                this.textContent = `Sort by Created`;
+                this.dataset.order = newOrder;
+                document.getElementById('sortByCreatedOrder').textContent = `Create (${newOrder === 'ASC' ? 'Ascending' : 'Descending'})`; // Update sort order text
+                document.getElementById('sortByNameOrder').textContent = ''; // Clear sort order text of the other button
+            });
+        });
+
+        function encodeURIWithApostrophe(str) {
+            // Replace apostrophes with their URL-encoded equivalent
+            return encodeURI(str).replace(/'/g, '%27');
+}
+        function fetchAndDisplayLists(sortBy, sortOrder) {
+            const xhr = new XMLHttpRequest();
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === XMLHttpRequest.DONE) {
+                    if (xhr.status === 200) {
+                        const lists = JSON.parse(xhr.responseText);
+                        displayLists(lists);
+                    } else {
+                        console.error('Failed to fetch lists');
+                    }
+                }
+            };
+            console.log(sortBy, sortOrder);
+            xhr.open('GET', `fetchLists.php?sort_by=${sortBy}&sort_order=${sortOrder}`);
+            xhr.send();
+        }
+
+        function fetchLists() {
+            const xhr = new XMLHttpRequest();
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === XMLHttpRequest.DONE) {
+                    if (xhr.status === 200) {
+                        const lists = JSON.parse(xhr.responseText);
+                        displayLists(lists);
+                    } else {
+                        console.error('Failed to fetch lists');
+                    }
+                }
+            };
+            xhr.open('GET', 'fetchLists.php');
+            xhr.send();
+            document.getElementById('sortOptions').style.display = 'block';
+        }
+
+        function createList(name) {
+            // Check if the list already exists
+            const lists = document.getElementById('lists-container').querySelectorAll('h3');
+            for (let i = 0; i < lists.length; i++) {
+                if (lists[i].textContent === name) {
+                    alert('This list already exists!');
+                    return; // Exit the function if the list already exists
+                }
+            }
+
+            // If the list doesn't exist, proceed to create it
+            const xhr = new XMLHttpRequest();
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === XMLHttpRequest.DONE) {
+                    if (xhr.status === 200) {
+                        fetchLists(); // Refresh the lists after creating a new one
+                    } else {
+                        console.error('Failed to create list');
+                    }
+                }
+            };
+            xhr.open('POST', 'createList.php');
+            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            xhr.send('name=' + encodeURIComponent(name));
+        }
+
+
+        function viewList(listId, listName, listItems) {
+            const xhr = new XMLHttpRequest();
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === XMLHttpRequest.DONE) {
+                    if (xhr.status === 200) {
+                        const listItems = JSON.parse(xhr.responseText);
+                        displayListItems(listId, listName, listItems);
+                    } else {
+                        console.error('Failed to fetch list items');
+                    }
+                }
+            };
+            xhr.open('POST', 'viewList.php');
+            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            xhr.send('list_id=' + encodeURIComponent(listId));
+            // Hide the sort buttons
+            document.getElementById('sortOptions').style.display = 'none';
+        }
+
+        function displayListItems(listId, listName, listItems) {
+            const listsContainer = document.getElementById('lists-container');
+            listsContainer.innerHTML = ''; // Clear previous content
+
+            // Show back button
+            document.getElementById('backButton').style.display = 'block';
+            // Hide the new list form
+            document.getElementById('new-list-form').style.display = 'none';
+
+            // Display the current list name
+            const currentListName = document.createElement('h2');
+            currentListName.textContent = listName;
+            listsContainer.appendChild(currentListName);
+
+            // Create a form for adding list items
+            const addItemForm = document.createElement('form');
+            addItemForm.innerHTML = `
+                <input type="text" id="new-list-item" placeholder="Add new item">
+                <button type="submit">Add Item</button>
+            `;
+
+            // Handle form submission
+            addItemForm.addEventListener('submit', function(event) {
+                event.preventDefault();
+                const newItem = document.getElementById('new-list-item').value.trim();
+                if (newItem !== '') {
+                    addListItem(listId, newItem);
+                }
+            });
+            listsContainer.appendChild(addItemForm);
+
+            // Sort list items based on checked status
+            listItems.sort((a, b) => {
+                // Sort in descending order so checked items appear first
+                return b.checked - a.checked;
+            });
+
+            // Display sorted list items
+            listItems.forEach(function(item) {
+                const listItem = document.createElement('div');
+                listItem.classList.add('list-item');
+                // Add a class based on checked status
+                listItem.classList.add(item.checked === 1 ? 'checked' : 'unchecked');
+                listItem.innerHTML = `
+                    <span>${item.item}</span>
+                    <label><input type="checkbox" onchange="toggleChecked(${listId}, '${item.item}', '${listName}', ${item.checked})" ${item.checked === 1 ? 'checked' : ''}>Checked</label>
+                    <label><input type="checkbox" onchange="toggleUnchecked(${listId}, '${item.item}', '${listName}', ${item.checked})" ${item.checked === 0 ? 'checked' : ''}>Unchecked</label>
+                    <button onclick="updateListItem(${listId}, '${item.item}', '${listName}')">Update</button>
+                    <button onclick="deleteListItem(${listId}, '${item.item}', '${listName}', '${item.item}')">Delete</button>
+                `;
+                listItem.setAttribute('data-item-id', item.id); // Add data-item-id attribute
+                listsContainer.appendChild(listItem);
+            });
+        }
+
+
+        function toggleChecked(listId, itemId, currentChecked) {
+            const newChecked = currentChecked === 1 ? 0 : 1; // Toggle checked status
+            
+            const xhr = new XMLHttpRequest();
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === XMLHttpRequest.DONE) {
+                    if (xhr.status === 200) {
+                        // Refresh the list after toggling checked status
+                        viewList(listId);
+                    } else {
+                        console.error('Failed to toggle checked status');
+                    }
+                }
+            };
+            xhr.open('POST', 'checked.php');
+            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            xhr.send('list_id=' + encodeURIComponent(listId) + '&item_id=' + encodeURIComponent(itemId) + '&new_checked=' + encodeURIComponent(newChecked));
+
+            // Toggle checked class on the list item and change text color
+            const listItem = document.querySelector(`[data-item-id="${itemId}"]`);
+            if (listItem) {
+                if (newChecked === 1) {
+                    listItem.classList.add('checked');
+                    listItem.classList.remove('unchecked');
+                } else {
+                    listItem.classList.remove('checked');
+                    listItem.classList.add('unchecked');
+                    listItem.style.color = 'black'; // Set text color to black
+                }
+            }
+        }
+
+
+        function toggleUnchecked(listId, itemId, currentChecked) {
+            const newChecked = 0; // Set checked status to 0 (unchecked)
+            
+            const xhr = new XMLHttpRequest();
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === XMLHttpRequest.DONE) {
+                    if (xhr.status === 200) {
+                        // Refresh the list after setting checked status to 0
+                        viewList(listId);
+                    } else {
+                        console.error('Failed to set checked status to 0');
+                    }
+                }
+            };
+            xhr.open('POST', 'checked.php');
+            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            xhr.send('list_id=' + encodeURIComponent(listId) + '&item_id=' + encodeURIComponent(itemId) + '&new_checked=' + encodeURIComponent(newChecked));
+
+            // Set text color to black
+            const listItem = document.querySelector(`[data-item-id="${itemId}"]`);
+            if (listItem) {
+                listItem.classList.remove('checked');
+                listItem.classList.add('unchecked');
+                listItem.style.color = 'black'; // Set text color to black
+            }
+        }
+
+
+
+        function updateList(listId, newName) {
+            const xhr = new XMLHttpRequest();
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === XMLHttpRequest.DONE) {
+                    if (xhr.status === 200) {
+                        fetchLists(); // Refresh the lists after updating
+                    } else {
+                        console.error('Failed to update list');
+                    }
+                }
+            };
+            xhr.open('POST', 'updateList.php');
+            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            xhr.send('list_id=' + encodeURIComponent(listId) + '&new_name=' + encodeURIComponent(newName));
+        }
+
+        function deleteList(listId) {
+            // Show confirmation dialog
+            const confirmation = confirm("Are you sure you want to delete this list?");
+
+            // Proceed with deletion if user confirms
+            if (confirmation) {
+                const xhr = new XMLHttpRequest();
+                xhr.onreadystatechange = function() {
+                    if (xhr.readyState === XMLHttpRequest.DONE) {
+                        if (xhr.status === 200) {
+                            fetchLists(); // Refresh the lists after deleting
+                        } else {
+                            console.error('Failed to delete list');
+                        }
+                    }
+                };
+                xhr.open('POST', 'deleteList.php');
+                xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+                xhr.send('list_id=' + encodeURIComponent(listId));
+            }
+        }
+
+
+        function displayLists(lists) {
+            const listsContainer = document.getElementById('lists-container');
+            listsContainer.innerHTML = ''; // Clear previous content
+            lists.forEach(function(list) {
+                const listElement = document.createElement('div');
+                listElement.innerHTML = `
+                    <h3>${list.name}</h3>
+                    <button onclick="viewList(${list.id}, '${list.name}')">View</button>
+                    <button onclick="showUpdateForm(${list.id}, '${list.name}')">Update</button>
+                    <button onclick="deleteList(${list.id})">Delete</button>
+                `;
+                listsContainer.appendChild(listElement);
+            });
+        }
+
+        function showUpdateForm(listId, currentName) {
+            const newName = prompt('Enter new name:', currentName);
+            if (newName !== null && newName.trim() !== '') {
+                updateList(listId, newName.trim());
+            }
+        }
+
+
+        function addListItem(listId, newItem) {
+            console.log("list id:", listId, "newItem", newItem);
+            const xhr = new XMLHttpRequest();
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === XMLHttpRequest.DONE) {
+                    if (xhr.status === 200) {
+                        viewList(listId); // Refresh the list items after adding a new one
+                    } else {
+                        console.error('Failed to add list item');
+                    }
+                }
+            };
+            xhr.open('POST', 'addListItem.php');
+            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            xhr.send('list_id=' + encodeURIComponent(listId) + '&item=' + encodeURIComponent(newItem));
+        }
+
+        function updateListItem(listId, itemId) {
+            const newItem = prompt('Update item:');
+            if (newItem !== null && newItem.trim() !== '') {
+                const xhr = new XMLHttpRequest();
+                xhr.onreadystatechange = function() {
+                    if (xhr.readyState === XMLHttpRequest.DONE) {
+                        if (xhr.status === 200) {
+                            // Update was successful, you may want to refresh the list
+                            viewList(listId);
+                        } else {
+                            console.error('Failed to update list item');
+                        }
+                    }
+                };
+                xhr.open('POST', 'updateListItem.php');
+                xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+                xhr.send('list_id=' + encodeURIComponent(listId) + '&item_id=' + encodeURIComponent(itemId) + '&new_item=' + encodeURIComponent(newItem));
+            }
+        }
+
+        function deleteListItem(listId, itemId, item) {
+            // Show confirmation dialog
+            const confirmation = confirm("Are you sure you want to delete this item?");
+
+            // Proceed with deletion if user confirms
+            if (confirmation) {
+                const xhr = new XMLHttpRequest();
+                xhr.onreadystatechange = function() {
+                    if (xhr.readyState === XMLHttpRequest.DONE) {
+                        if (xhr.status === 200) {
+                            // Deletion was successful, you may want to refresh the list
+                            viewList(listId);
+                        } else {
+                            console.error('Failed to delete list item');
+                        }
+                    }
+                };
+                xhr.open('POST', 'deleteListItem.php');
+                xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+                xhr.send('list_id=' + encodeURIComponent(listId) + '&item_id=' + encodeURIComponent(itemId));
+            }
+        }
+
+
+    </script>
+</body>
+</html>
